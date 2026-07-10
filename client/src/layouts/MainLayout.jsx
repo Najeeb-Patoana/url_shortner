@@ -4,7 +4,7 @@ import Footer from '../components/common/Footer.jsx';
 
 const MainLayout = () => {
   return (
-    <div className="min-h-screen flex flex-col bg-mesh">
+    <div className="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950">
       <Navbar />
       <main className="flex-1">
         <Outlet />
