@@ -47,7 +47,7 @@ export const redirect = async (req, res, next) => {
     ]).catch((err) => logger.error(`Post-redirect processing failed: ${err.message}`));
 
     // 302 Temporary redirect (allows analytics re-processing)
-    return res.redirect(HTTP_STATUS.OK + 102, url.originalUrl);
+    return res.redirect(302, url.originalUrl);
   } catch (error) {
     next(error);
   }
