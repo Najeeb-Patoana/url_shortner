@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiEdit2, FiTrash2, FiBarChart2, FiCopy, FiToggleLeft, FiToggleRight,
-  FiStar, FiExternalLink, FiShare2, FiMoreVertical, FiQrCode,
+  FiStar, FiExternalLink, FiMoreVertical, FiGrid,
 } from 'react-icons/fi';
 import { formatDate, formatNumber } from '../../utils/formatDate.js';
 import { truncateUrl } from '../../utils/truncateUrl.js';
@@ -110,7 +110,7 @@ const UrlCard = ({ url, onEdit, onDelete, onAnalytics, onQrCode, selected, onSel
                     { icon: FiCopy, label: 'Copy Link', action: () => copy(shortUrl, 'Link') },
                     { icon: FiEdit2, label: 'Edit', action: () => onEdit(url) },
                     { icon: FiBarChart2, label: 'Analytics', action: () => onAnalytics(url) },
-                    { icon: FiQrCode, label: 'QR Code', action: () => onQrCode(url) },
+                    { icon: FiGrid, label: 'QR Code', action: () => onQrCode(url) },
                     {
                       icon: url.isActive ? FiToggleLeft : FiToggleRight,
                       label: url.isActive ? 'Disable' : 'Enable',
