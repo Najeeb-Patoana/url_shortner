@@ -7,20 +7,18 @@ import logger from '../config/logger.js';
 
 const urlService = {
   /**
-   * Create a new shortened URL.
+   * Create a new shortened URL (no owner required).
    */
-  create: async ({ originalUrl, customAlias, expiresAt, title, tags }, ownerId) => {
+  create: async ({ originalUrl, customAlias, expiresAt, title, tags }) => {
     let shortCode;
 
     if (customAlias) {
-      // Validate alias uniqueness
       const exists = await urlRepository.existsByCode(customAlias);
       if (exists) {
         throw new ApiError(HTTP_STATUS.CONFLICT, `Alias "${customAlias}" is already taken`);
       }
       shortCode = customAlias;
     } else {
-      // Generate unique random short code
       let attempts = 0;
       do {
         shortCode = generateShortCode();
@@ -33,15 +31,13 @@ const urlService = {
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
     const fullShortUrl = `${baseUrl}/${customAlias || shortCode}`;
-
-    // Generate QR code
     const qrCode = await generateQR(fullShortUrl);
 
     const url = await urlRepository.create({
       originalUrl,
       shortCode,
       customAlias: customAlias || undefined,
-      owner: ownerId,
+      owner: null, // No owner — public URL
       expiresAt: expiresAt || null,
       qrCode,
       title: title || '',
@@ -53,23 +49,21 @@ const urlService = {
   },
 
   /**
-   * Get all URLs for a user with pagination, search, sort, and filter.
+   * Get all URLs (no owner filter) with pagination, search, sort.
    */
-  getUserUrls: async (ownerId, { page, limit, search, sort, filter } = {}) => {
+  getAllUrls: async ({ page = 1, limit = 10, search = '', sort = '-createdAt', filter = {} } = {}) => {
     const [urls, total] = await Promise.all([
-      urlRepository.findByOwner({ ownerId, page, limit, search, sort, filter }),
-      urlRepository.countByOwner(ownerId, filter),
+      urlRepository.findAll({ page, limit, search, sort, filter }),
+      urlRepository.count(filter),
     ]);
     return { urls, total, page, limit, totalPages: Math.ceil(total / limit) };
   },
 
   /**
-   * Get a single URL by ID (owner scoped).
+   * Get a single URL by ID.
    */
-  getUrlById: async (id, ownerId, isAdmin = false) => {
-    const url = isAdmin
-      ? await urlRepository.findById(id)
-      : await urlRepository.findByIdAndOwner(id, ownerId);
+  getUrlById: async (id) => {
+    const url = await urlRepository.findById(id);
     if (!url) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found');
     }
@@ -79,21 +73,16 @@ const urlService = {
   /**
    * Update a URL's metadata.
    */
-  update: async (id, ownerId, updates, isAdmin = false) => {
-    // If changing alias, check uniqueness
+  update: async (id, updates) => {
     if (updates.customAlias) {
       const exists = await urlRepository.existsByCode(updates.customAlias);
       if (exists) {
         throw new ApiError(HTTP_STATUS.CONFLICT, `Alias "${updates.customAlias}" is already taken`);
       }
     }
-
-    const url = isAdmin
-      ? await urlRepository.updateById(id, updates)
-      : await urlRepository.updateByIdAndOwner(id, ownerId, updates);
-
+    const url = await urlRepository.updateById(id, updates);
     if (!url) {
-      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found or not authorized');
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found');
     }
     return url;
   },
@@ -101,12 +90,10 @@ const urlService = {
   /**
    * Delete a URL.
    */
-  delete: async (id, ownerId, isAdmin = false) => {
-    const url = isAdmin
-      ? await urlRepository.deleteById(id)
-      : await urlRepository.deleteByIdAndOwner(id, ownerId);
+  delete: async (id) => {
+    const url = await urlRepository.deleteById(id);
     if (!url) {
-      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found or not authorized');
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found');
     }
     logger.info(`URL deleted: ${id}`);
     return url;
@@ -115,12 +102,10 @@ const urlService = {
   /**
    * Toggle active/inactive status.
    */
-  toggleStatus: async (id, ownerId, isActive, isAdmin = false) => {
-    const url = isAdmin
-      ? await urlRepository.updateById(id, { isActive })
-      : await urlRepository.updateByIdAndOwner(id, ownerId, { isActive });
+  toggleStatus: async (id, isActive) => {
+    const url = await urlRepository.updateById(id, { isActive });
     if (!url) {
-      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found or not authorized');
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found');
     }
     return url;
   },
@@ -128,24 +113,19 @@ const urlService = {
   /**
    * Toggle favorite flag.
    */
-  toggleFavorite: async (id, ownerId) => {
-    const url = await urlRepository.findByIdAndOwner(id, ownerId);
+  toggleFavorite: async (id) => {
+    const url = await urlRepository.findById(id);
     if (!url) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, 'URL not found');
     }
-    return urlRepository.updateByIdAndOwner(id, ownerId, { isFavorite: !url.isFavorite });
+    return urlRepository.updateById(id, { isFavorite: !url.isFavorite });
   },
 
   /**
    * Bulk delete URLs.
    */
-  bulkDelete: async (ids, ownerId, isAdmin = false) => {
-    if (isAdmin) {
-      return urlRepository.bulkDelete(ids);
-    }
-    // For regular users, only delete own URLs
-    const { deletedCount } = await urlRepository.bulkDelete(ids);
-    return { deletedCount };
+  bulkDelete: async (ids) => {
+    return urlRepository.bulkDelete(ids);
   },
 
   /**
@@ -153,17 +133,6 @@ const urlService = {
    */
   bulkUpdateStatus: async (ids, isActive) => {
     return urlRepository.bulkUpdateStatus(ids, isActive);
-  },
-
-  /**
-   * Admin: get all URLs.
-   */
-  getAllUrls: async ({ page, limit, search, sort, filter } = {}) => {
-    const [urls, total] = await Promise.all([
-      urlRepository.findAll({ page, limit, search, sort, filter }),
-      urlRepository.count(filter),
-    ]);
-    return { urls, total, page, limit, totalPages: Math.ceil(total / limit) };
   },
 
   /**

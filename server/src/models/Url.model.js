@@ -37,7 +37,8 @@ const urlSchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      required: false, // Optional — supports anonymous/public usage
+      default: null,
       index: true,
     },
     isActive: {

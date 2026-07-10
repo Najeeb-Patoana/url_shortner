@@ -10,7 +10,6 @@ import {
   bulkDelete,
   bulkUpdateStatus,
 } from '../controllers/url.controller.js';
-import { authenticate } from '../middleware/auth.middleware.js';
 import validate from '../middleware/validate.middleware.js';
 import {
   createUrlValidator,
@@ -21,9 +20,7 @@ import {
 
 const router = Router();
 
-// All URL routes require authentication
-router.use(authenticate);
-
+// No authentication required — fully public API
 router.post('/', createUrlValidator, validate, createUrl);
 router.get('/', paginationValidator, validate, getUrls);
 router.get('/:id', urlIdValidator, validate, getUrlById);

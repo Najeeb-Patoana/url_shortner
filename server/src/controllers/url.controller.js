@@ -3,39 +3,12 @@ import ApiResponse from '../utils/ApiResponse.js';
 import HTTP_STATUS from '../constants/httpStatus.js';
 
 /**
- * @swagger
- * /api/urls:
- *   post:
- *     summary: Create a shortened URL
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [originalUrl]
- *             properties:
- *               originalUrl: { type: string, format: uri }
- *               customAlias: { type: string }
- *               expiresAt: { type: string, format: date-time }
- *               title: { type: string }
- *               tags: { type: array, items: { type: string } }
- *     responses:
- *       201:
- *         description: URL shortened successfully
- *       409:
- *         description: Alias already taken
+ * Create a shortened URL — no authentication required.
  */
 export const createUrl = async (req, res, next) => {
   try {
     const { originalUrl, customAlias, expiresAt, title, tags } = req.body;
-    const url = await urlService.create(
-      { originalUrl, customAlias, expiresAt, title, tags },
-      req.user._id
-    );
+    const url = await urlService.create({ originalUrl, customAlias, expiresAt, title, tags });
     res.status(HTTP_STATUS.CREATED).json(
       new ApiResponse(HTTP_STATUS.CREATED, url, 'URL shortened successfully')
     );
@@ -45,29 +18,7 @@ export const createUrl = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /api/urls:
- *   get:
- *     summary: Get all URLs for the authenticated user
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 10 }
- *       - in: query
- *         name: search
- *         schema: { type: string }
- *       - in: query
- *         name: sort
- *         schema: { type: string, enum: ['-createdAt', 'createdAt', '-clicks', 'clicks'] }
- *     responses:
- *       200:
- *         description: URLs retrieved successfully
+ * Get all URLs — returns all URLs (no user filter).
  */
 export const getUrls = async (req, res, next) => {
   try {
@@ -77,7 +28,7 @@ export const getUrls = async (req, res, next) => {
     if (isActive !== undefined) filter.isActive = isActive === 'true';
     if (isFavorite !== undefined) filter.isFavorite = isFavorite === 'true';
 
-    const result = await urlService.getUserUrls(req.user._id, {
+    const result = await urlService.getAllUrls({
       page: Number(page),
       limit: Number(limit),
       search,
@@ -94,28 +45,11 @@ export const getUrls = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /api/urls/{id}:
- *   get:
- *     summary: Get a single URL by ID
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: URL retrieved
- *       404:
- *         description: URL not found
+ * Get a single URL by ID.
  */
 export const getUrlById = async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
-    const url = await urlService.getUrlById(req.params.id, req.user._id, isAdmin);
+    const url = await urlService.getUrlById(req.params.id);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, url, 'URL retrieved successfully')
     );
@@ -125,24 +59,12 @@ export const getUrlById = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /api/urls/{id}:
- *   put:
- *     summary: Update a URL
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
+ * Update a URL.
  */
 export const updateUrl = async (req, res, next) => {
   try {
     const { originalUrl, customAlias, expiresAt, title, tags, isFavorite } = req.body;
-    const isAdmin = req.user.role === 'admin';
-    const url = await urlService.update(
-      req.params.id,
-      req.user._id,
-      { originalUrl, customAlias, expiresAt, title, tags, isFavorite },
-      isAdmin
-    );
+    const url = await urlService.update(req.params.id, { originalUrl, customAlias, expiresAt, title, tags, isFavorite });
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, url, 'URL updated successfully')
     );
@@ -152,18 +74,11 @@ export const updateUrl = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /api/urls/{id}:
- *   delete:
- *     summary: Delete a URL
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
+ * Delete a URL.
  */
 export const deleteUrl = async (req, res, next) => {
   try {
-    const isAdmin = req.user.role === 'admin';
-    await urlService.delete(req.params.id, req.user._id, isAdmin);
+    await urlService.delete(req.params.id);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, null, 'URL deleted successfully')
     );
@@ -173,19 +88,12 @@ export const deleteUrl = async (req, res, next) => {
 };
 
 /**
- * @swagger
- * /api/urls/{id}/status:
- *   patch:
- *     summary: Toggle URL active/inactive status
- *     tags: [URLs]
- *     security:
- *       - bearerAuth: []
+ * Toggle URL active/inactive status.
  */
 export const toggleStatus = async (req, res, next) => {
   try {
     const { isActive } = req.body;
-    const isAdmin = req.user.role === 'admin';
-    const url = await urlService.toggleStatus(req.params.id, req.user._id, isActive, isAdmin);
+    const url = await urlService.toggleStatus(req.params.id, isActive);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, url, `URL ${isActive ? 'enabled' : 'disabled'} successfully`)
     );
@@ -195,11 +103,11 @@ export const toggleStatus = async (req, res, next) => {
 };
 
 /**
- * Toggle favorite status of a URL.
+ * Toggle favorite status.
  */
 export const toggleFavorite = async (req, res, next) => {
   try {
-    const url = await urlService.toggleFavorite(req.params.id, req.user._id);
+    const url = await urlService.toggleFavorite(req.params.id);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, url, 'Favorite status updated')
     );
@@ -214,8 +122,7 @@ export const toggleFavorite = async (req, res, next) => {
 export const bulkDelete = async (req, res, next) => {
   try {
     const { ids } = req.body;
-    const isAdmin = req.user.role === 'admin';
-    const result = await urlService.bulkDelete(ids, req.user._id, isAdmin);
+    const result = await urlService.bulkDelete(ids);
     res.status(HTTP_STATUS.OK).json(
       new ApiResponse(HTTP_STATUS.OK, result, 'URLs deleted successfully')
     );
